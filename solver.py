@@ -1,4 +1,4 @@
-"""Send one unsolved ticket to a local Cursor agent in the HBA workspace."""
+"""Send one unresolved ticket to a local Cursor agent in the product workspace."""
 
 from __future__ import annotations
 
@@ -7,14 +7,16 @@ import os
 import sys
 
 from config import (
+    BLOCKED,
     COMPLETED,
     CURSOR_MODEL,
-    FIXED,
+    READY,
     UNRESOLVED,
     VERIFYING,
     code_context,
     cursor_api_key,
     get_ticket,
+    last_verdict,
     load_tickets,
     product_cwd,
     set_ticket_status,
@@ -25,22 +27,33 @@ def ticket_prompt(ticket: dict, context: str) -> str:
     return """
 Fix this ticket completely.
 
-TICKET.repos lists the local checkouts. Open those first. CODE CONTEXT has
-the rest of the product map. This runner repo is not the product code.
+This workspace is the product root, not the ticket runner. CODE CONTEXT names
+the repositories, how they fit together, how to test, and any branch or
+deploy rules. Follow that context. If it does not identify a repository for
+this ticket, stop and say so.
 
 Before editing:
-- Read the project handoff rule if it is available.
+- Read any handoff or rules the context names.
 - Verify the reported cause from code, tests, or focused logs. Treat the
   ticket diagnosis as a hypothesis.
 - Check the branch and existing uncommitted changes. Preserve them.
 
 Make the smallest production-quality change that fixes the root cause. Follow
-the existing architecture. Add a regression test. Run focused tests and the
-relevant build or type check. Do not commit, push, or deploy unless the user
+the existing architecture. Add a regression test. Run the focused tests and
+builds the context describes. Do not commit, push, or deploy unless the user
 separately authorized it.
 
-Finish with the verified cause, changed files, validation results, and any
-blocker.
+After the happy path passes, check adjacent callers and the opposite case.
+If a nearby path now breaks, fix that before you finish.
+
+Finish with the verified cause, changed files, validation results, adjacent
+checks, and any blocker. Then exactly one of these lines:
+VERDICT: ready
+VERDICT: blocked
+
+Use ready only when the root cause is fixed and the focused tests passed.
+Use blocked if the context does not name a repository, the branch is wrong,
+or you could not complete the fix.
 
 TICKET
 {ticket}
@@ -59,9 +72,12 @@ def list_tickets() -> None:
         print("no tickets")
         return
     for ticket in tickets:
-        repos = ", ".join(repo["name"] for repo in ticket["repos"])
+        repos = ", ".join(
+            repo.get("name", "") for repo in ticket.get("repos") or [] if isinstance(repo, dict)
+        )
+        where = repos or ", ".join(ticket.get("services") or [])
         print("{0}\t{1}\t{2}\t{3}".format(
-            ticket["id"], ticket["status"], repos, ticket["title"]
+            ticket["id"], ticket["status"], where, ticket["title"]
         ))
 
 
@@ -75,8 +91,8 @@ def complete(ticket_id: str) -> None:
                 ticket_id, ticket["status"]
             )
         )
-    set_ticket_status(ticket_id, FIXED)
-    print("{0}\t{1}".format(ticket_id, FIXED))
+    set_ticket_status(ticket_id, COMPLETED)
+    print("{0}\t{1}".format(ticket_id, COMPLETED))
 
 
 def solve(ticket_id: str) -> None:
@@ -124,11 +140,15 @@ def solve(ticket_id: str) -> None:
     if result.status == "error":
         raise RuntimeError("run failed: {0}".format(result.id))
 
-    set_ticket_status(ticket_id, VERIFYING, result.id)
-    print(result.status)
-    print("{0}\t{1}".format(ticket_id, VERIFYING))
     if result.result:
         print(result.result)
+    verdict = last_verdict(result.result)
+    if verdict != READY:
+        print("{0}\t{1}\t{2}".format(ticket_id, UNRESOLVED, verdict or BLOCKED))
+        return
+
+    set_ticket_status(ticket_id, VERIFYING, result.id)
+    print("{0}\t{1}".format(ticket_id, VERIFYING))
 
 
 def solve_all() -> None:

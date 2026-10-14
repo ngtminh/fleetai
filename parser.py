@@ -11,7 +11,6 @@ import pymupdf
 from botocore.exceptions import BotoCoreError, ClientError, NoCredentialsError
 
 from config import (
-    CONTEXT_PATH,
     EMAIL_PATH,
     PDF_PATH,
     TICKETS_PATH,
@@ -64,18 +63,25 @@ def parse_json(text: str):
 def main() -> None:
     email = EMAIL_PATH.read_text(encoding="utf-8").strip()
     report = pdf_text(PDF_PATH)
-    prompt = PROMPT.replace("{{email}}", email).replace("{{report}}", report)
+    prompt = (
+        PROMPT.replace("{{email}}", email)
+        .replace("{{report}}", report)
+        .replace("{{code_context}}", code_context())
+    )
     tickets = apply_workflow(
         normalize_tickets(parse_json(ask_sonnet(prompt))),
         load_tickets(),
     )
     save_tickets(tickets)
-    CONTEXT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    CONTEXT_PATH.write_text(code_context(), encoding="utf-8")
     print("Wrote {0} ({1} tickets)".format(TICKETS_PATH, len(tickets)))
     for ticket in tickets:
-        repos = ", ".join(repo["name"] for repo in ticket["repos"])
-        print("{0}\t{1}\t{2}".format(ticket["id"], ticket["status"], repos))
+        repos = ", ".join(
+            repo.get("name", "")
+            for repo in ticket.get("repos") or []
+            if isinstance(repo, dict)
+        )
+        where = repos or ", ".join(ticket.get("services") or [])
+        print("{0}\t{1}\t{2}".format(ticket["id"], ticket["status"], where))
 
 
 if __name__ == "__main__":

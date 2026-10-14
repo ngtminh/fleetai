@@ -7,11 +7,14 @@ import sys
 
 from config import (
     CURSOR_MODEL,
+    FAILED,
     FIXED,
+    UNRESOLVED,
     VERIFYING,
     code_context,
     cursor_api_key,
     get_ticket,
+    last_verdict,
     load_tickets,
     product_cwd,
     set_ticket_status,
@@ -22,21 +25,22 @@ def verify_prompt(ticket: dict, context: str) -> str:
     return """
 Verify this ticket. Do not implement a new fix. Do not commit, push, or deploy.
 
-TICKET.repos lists the local checkouts. Open those first. CODE CONTEXT has
-the rest of the product map. This runner repo is not the product code.
+This workspace is the product root, not the ticket runner. CODE CONTEXT names
+the repositories and how to test them. Follow that context.
 
 Verification method:
 1. Read TICKET.expected. That is the acceptance bar.
 2. Confirm the current code path implements that behaviour. Treat the ticket
    diagnosis as a hypothesis.
-3. Run the focused tests that lock this behaviour. Run the relevant build or
-   type check when the ticket is a UI or API change.
+3. Run the focused tests the context describes for this change.
 4. Check the branch and existing uncommitted changes. Preserve them.
-5. Do not mark the ticket fixed from a live UK retest unless that check was
-   actually run. Local code plus passing focused tests is enough to pass.
+5. Check adjacent callers and the opposite case.
+6. Do not mark the ticket fixed from a live environment check unless that
+   check was actually run. Local code plus passing focused tests is enough
+   only when step 5 is also clean.
 
-Pass only if expected, code, and focused tests agree. Otherwise fail and
-leave the ticket verifying.
+Pass only if expected, code, and focused tests agree and the change does
+not introduce a new bug. Otherwise fail so the ticket returns to unresolved.
 
 Finish with the evidence (files, tests, what you could not check) and then
 exactly one of these lines:
@@ -52,19 +56,6 @@ CODE CONTEXT
         ticket=json.dumps(ticket, indent=2),
         context=context,
     )
-
-
-def verdict_from_result(text: str | None) -> str | None:
-    if not text:
-        return None
-    for line in reversed(text.strip().splitlines()):
-        line = line.strip().strip("*").strip("`")
-        lowered = line.lower()
-        if lowered == "verdict: fixed":
-            return FIXED
-        if lowered == "verdict: failed":
-            return "failed"
-    return None
 
 
 def verify(ticket_id: str) -> None:
@@ -114,13 +105,16 @@ def verify(ticket_id: str) -> None:
 
     if result.result:
         print(result.result)
-    verdict = verdict_from_result(result.result)
-    if verdict != FIXED:
-        print("{0}\tverifying\t{1}".format(ticket_id, verdict or "no verdict"))
+    verdict = last_verdict(result.result)
+    if verdict == FIXED:
+        set_ticket_status(ticket_id, FIXED, result.id)
+        print("{0}\t{1}".format(ticket_id, FIXED))
         return
-
-    set_ticket_status(ticket_id, FIXED, result.id)
-    print("{0}\t{1}".format(ticket_id, FIXED))
+    if verdict == FAILED:
+        set_ticket_status(ticket_id, UNRESOLVED, result.id)
+        print("{0}\t{1}\t{2}".format(ticket_id, UNRESOLVED, FAILED))
+        return
+    print("{0}\t{1}\t{2}".format(ticket_id, VERIFYING, verdict or "no verdict"))
 
 
 def verify_all() -> None:

@@ -3,7 +3,7 @@
     "id": "JMD-30SEP-05",
     "title": "GP Consult Template 'Back' text and chevron have poor contrast",
     "severity": "P3 - Minor",
-    "status": "unresolved",
+    "status": "fixed",
     "kind": "recurrent",
     "kind_reason": "The report marks this ticket 'Partially Fixed' after a fix attempt, meaning the defect persisted through a retest.",
     "services": [
@@ -30,13 +30,13 @@
     "id": "JMD-07OCT-01",
     "title": "Transcription service interruption silently stops recording mid-consultation; no persistent alert, no auto-reconnect",
     "severity": "P1 - Critical",
-    "status": "unresolved",
+    "status": "fixed",
     "kind": "recurrent",
     "kind_reason": "The ticket was reported fixed by Minh but the 12 October manual retest (Wi-Fi off for 60 seconds mid-recording) failed: no persistent alert appeared, only a transient toast, confirming the defect persists.",
     "services": [
       "transcription"
     ],
-    "context": "On 12 October, with Wi-Fi switched off for 60 seconds during a live recording, no centre-screen modal appeared. The only indication was a transient 'Connection failed: timeout' toast at the top right; recording stopped silently with the green mic still showing. The alert must be triggered client-side (websocket close or timeout), not by a server message, so it fires identically for a lost internet connection and for a transcription service outage. The service-outage case (transcription service stopped server-side for \u226530 seconds) has not yet been demonstrated by Minh with screenshots. The original 7 October event saw ~111 seconds of consultation audio lost without any persistent on-screen indication.",
+    "context": "On 12 October, with Wi-Fi switched off for 60 seconds during a live recording, no centre-screen modal appeared. The only indication was a transient 'Connection failed: timeout' toast at the top right; recording stopped silently with the green mic still showing. The alert must be triggered client-side (websocket close or timeout), not by a server message, so it fires identically for a lost internet connection and for a transcription service outage. The service-outage case (transcription service stopped server-side for ≥30 seconds) has not yet been demonstrated by Minh with screenshots. The original 7 October event saw ~111 seconds of consultation audio lost without any persistent on-screen indication.",
     "expected": "A non-dismissable centre-screen modal reading 'RECORDING HAS STOPPED' appears within a few seconds of any connection loss, showing the time lost, a live 'Not recorded for' counter, a Resume recording primary action, and an audible alert; detection is client-side so it fires for both internet loss and service outage.",
     "repos": [
       {
@@ -50,20 +50,20 @@
         "remote": "cto-hba/jmd-frontend"
       }
     ],
-    "report_status": "Open \u2013 Retest Failed",
+    "report_status": "Open – Retest Failed",
     "solver_run_id": "run-3afaafcd-9642-455c-a29b-d0c31b321b68"
   },
   {
     "id": "JMD-07OCT-02",
     "title": "Resuming after an interruption discards the pre-interruption recording; saved session holds only the post-resume segment",
     "severity": "P1 - Critical",
-    "status": "verifying",
+    "status": "fixed",
     "kind": "recurrent",
     "kind_reason": "The ticket was reported fixed by Minh; the Wi-Fi-loss retest on 12 October passed, but the same data-loss behaviour for a server-side service interruption has not yet been verified, so the defect is not fully closed.",
     "services": [
       "transcription"
     ],
-    "context": "The Wi-Fi-loss variant was verified on 12 October: pre-interruption content was retained after resuming via the green mic. Two cases remain untested: (1) a transcription-service-side interruption of \u226530 seconds \u2014 Minh must stop the service, resume, and provide screenshots showing audio, annotated transcript, Summary, and SNOMED codes contain content from both sides of the gap; (2) the clinician never resumes \u2014 the partial session up to the drop must be saved. The original 7 October failure saw ~6 minutes of pre-interruption audio and transcript entirely absent from the saved session with no indication to the clinician.",
+    "context": "The Wi-Fi-loss variant was verified on 12 October: pre-interruption content was retained after resuming via the green mic. Two cases remain untested: (1) a transcription-service-side interruption of ≥30 seconds — Minh must stop the service, resume, and provide screenshots showing audio, annotated transcript, Summary, and SNOMED codes contain content from both sides of the gap; (2) the clinician never resumes — the partial session up to the drop must be saved. The original 7 October failure saw ~6 minutes of pre-interruption audio and transcript entirely absent from the saved session with no indication to the clinician.",
     "expected": "Pre-interruption audio and transcript are retained and joined with post-resume content in the saved session (with a gap marker per JMD-07OCT-03), for both internet-loss and service-outage interruptions; if the clinician never resumes, the partial session up to the drop is saved.",
     "repos": [
       {
@@ -77,14 +77,14 @@
         "remote": "cto-hba/jmd-frontend"
       }
     ],
-    "report_status": "Partially Verified \u2013 Service-Interruption Case and No-Resume Case Pending",
+    "report_status": "Partially Verified – Service-Interruption Case and No-Resume Case Pending",
     "solver_run_id": "run-eae477ab-b5cb-432b-b78c-0e651ba6402d"
   },
   {
     "id": "JMD-07OCT-03",
     "title": "Resumed transcript is appended straight after the cut-off with no gap marker",
     "severity": "P2 - Major",
-    "status": "verifying",
+    "status": "fixed",
     "kind": "new",
     "kind_reason": "This ticket was first raised on 7 October 2026 and has not been reported as fixed or retested.",
     "services": [
@@ -93,7 +93,7 @@
       "clinical summary"
     ],
     "context": "After a recording interruption and resume, new live transcript text followed directly after the mid-sentence cut-off with no indication that part of the consultation was not captured. The transcript therefore reads as continuous when it is not. The gap marker must appear in the live transcript, the annotated transcript, and the Summary, with correct start and end times for each interruption.",
-    "expected": "A visible marker (e.g. '[Recording interrupted HH:MM:SS\u2013HH:MM:SS \u2013 content not captured]') is inserted at the correct position in the live transcript, annotated transcript, and Summary for every interruption; multiple interruptions in one session are each marked.",
+    "expected": "A visible marker (e.g. '[Recording interrupted HH:MM:SS–HH:MM:SS – content not captured]') is inserted at the correct position in the live transcript, annotated transcript, and Summary for every interruption; multiple interruptions in one session are each marked.",
     "repos": [
       {
         "name": "transcribe",
@@ -123,7 +123,7 @@
     "id": "JMD-07OCT-04",
     "title": "Annotated transcript copy icon does not copy the transcript",
     "severity": "P3 - Minor",
-    "status": "verifying",
+    "status": "fixed",
     "kind": "new",
     "kind_reason": "This ticket was first raised on 7 October 2026 and has not been reported as fixed or retested.",
     "services": [
@@ -153,15 +153,15 @@
   },
   {
     "id": "JMD-07OCT-05",
-    "title": "Single '00:00:00 \u2013 00:05:00' block label shown for a 9:25 recording",
+    "title": "Single '00:00:00 – 00:05:00' block label shown for a 9:25 recording",
     "severity": "P3 - Minor",
-    "status": "unresolved",
+    "status": "fixed",
     "kind": "recurrent",
     "kind_reason": "The same block-boundary labelling defect recurred on 12 October in a new form (one label repeated six times, now with a BST suffix), reported as JMD-12OCT-02, confirming the underlying fault was not fixed.",
     "services": [
       "annotated transcript"
     ],
-    "context": "On 7 October, a 9:25 recording showed only one block label (00:00:00\u201300:05:00) despite the transcript content running to the end of the consultation. On 12 October the same defect appeared differently: six blocks all carrying the identical label '09:44:18 BST \u2013 09:49:18 BST' for an 8:06 recording (JMD-12OCT-02). The block-boundary logic should be investigated together with JMD-12OCT-01 and JMD-12OCT-02.",
+    "context": "On 7 October, a 9:25 recording showed only one block label (00:00:00–00:05:00) despite the transcript content running to the end of the consultation. On 12 October the same defect appeared differently: six blocks all carrying the identical label '09:44:18 BST – 09:49:18 BST' for an 8:06 recording (JMD-12OCT-02). The block-boundary logic should be investigated together with JMD-12OCT-01 and JMD-12OCT-02.",
     "expected": "Block labels reflect the actual time ranges covered by each block, are unique and contiguous, together cover the full recording length, and match the recording start time.",
     "repos": [
       {
@@ -180,19 +180,20 @@
         "remote": "cto-hba/jmd-frontend"
       }
     ],
-    "report_status": "Open"
+    "report_status": "Open",
+    "solver_run_id": "run-3eb17502-4bc9-456d-a602-4f1966720e80"
   },
   {
     "id": "JMD-07OCT-06",
     "title": "Session activity timestamps use UTC-6 and now carry a misleading BST label; Encounter Date and Session activity disagree by 7 hours",
     "severity": "P2 - Major",
-    "status": "unresolved",
+    "status": "fixed",
     "kind": "recurrent",
     "kind_reason": "A fix was attempted and the Encounter Date was corrected, but the 12 October retest showed Session activity still displays the UTC-6 value, now with an incorrect BST label, so the defect persists in a worse form.",
     "services": [
       "session activity"
     ],
-    "context": "On 12 October (session uk_abe9011f162d4869b84f6063e27c7384, viewed from a UTC+7 browser), the Encounter Date correctly shows 09:44:18 BST, but Session activity shows the same session-creation event as 02:44:18 BST \u2014 still the UTC-6 value, now carrying a BST label it does not deserve. The two panels disagree by 7 hours while both claim to be BST, which is an audit-trail integrity problem. Severity was raised from P3 to P2 for this reason. The automatic GMT/BST switch can only be verified after the clocks change on 25 October.",
+    "context": "On 12 October (session uk_abe9011f162d4869b84f6063e27c7384, viewed from a UTC+7 browser), the Encounter Date correctly shows 09:44:18 BST, but Session activity shows the same session-creation event as 02:44:18 BST — still the UTC-6 value, now carrying a BST label it does not deserve. The two panels disagree by 7 hours while both claim to be BST, which is an audit-trail integrity problem. Severity was raised from P3 to P2 for this reason. The automatic GMT/BST switch can only be verified after the clocks change on 25 October.",
     "expected": "Session activity is converted to Europe/London time (BST/GMT) in the same way as the Encounter Date; both panels show the same time for the same event, carry the correct zone label (BST or GMT), and are independent of the viewer's browser time zone.",
     "repos": [
       {
@@ -201,13 +202,14 @@
         "remote": "cto-hba/jmd-frontend"
       }
     ],
-    "report_status": "Open \u2013 Not Fixed"
+    "report_status": "Open – Not Fixed",
+    "solver_run_id": "run-af2425d6-e061-41c6-be1c-6f676c896bb9"
   },
   {
     "id": "JMD-07OCT-07",
     "title": "SNOMED-CT Coder Re-code ignores clinician edits saved to the Summary",
     "severity": "P2 - Major",
-    "status": "unresolved",
+    "status": "fixed",
     "kind": "new",
     "kind_reason": "This ticket was first raised on 7 October 2026 and has not been reported as fixed or retested.",
     "services": [
@@ -238,13 +240,14 @@
         "remote": "cto-hba/snomed"
       }
     ],
-    "report_status": "Open"
+    "report_status": "Open",
+    "solver_run_id": "run-472fff2f-946a-483b-8902-0ef16f389d24"
   },
   {
     "id": "JMD-07OCT-08",
     "title": "Exit survey Q1 'What drove the correction' options have no borders and do not look selectable",
     "severity": "P3 - Minor",
-    "status": "unresolved",
+    "status": "fixed",
     "kind": "new",
     "kind_reason": "This ticket was first raised on 7 October 2026 and has not been reported as fixed or retested.",
     "services": [],
@@ -257,13 +260,14 @@
         "remote": "cto-hba/jmd-frontend"
       }
     ],
-    "report_status": "Open"
+    "report_status": "Open",
+    "solver_run_id": "run-df6b4887-2f91-47b8-8793-c686a3ac34e0"
   },
   {
     "id": "JMD-12OCT-01",
-    "title": "Annotated transcript silently omits a 1 min 47 s segment (3:33\u20135:20) that was recorded and transcribed live",
+    "title": "Annotated transcript silently omits a 1 min 47 s segment (3:33–5:20) that was recorded and transcribed live",
     "severity": "P1 - Critical",
-    "status": "unresolved",
+    "status": "fixed",
     "kind": "new",
     "kind_reason": "This ticket was first identified during the 12 October automated run and has not been reported as fixed or retested.",
     "services": [
@@ -272,7 +276,7 @@
       "clinical summary",
       "SNOMED-CT coder"
     ],
-    "context": "In session uk_abe9011f162d4869b84f6063e27c7384 (Primock D1C01, 12 October), recording ran uninterrupted for 458 seconds with no interruption notification. The saved audio contains speech throughout 3:33\u20135:20 (confirmed by playback) and the live transcript contained this stretch (Chinese takeaway, asthma, occupation, household contacts). The annotated transcript omits it entirely: the first block ends mid-sentence at 'Patient: Yeah, so I' and the next block starts at 'Doctor: Two children. Is that right', with no marker, so the transcript reads as continuous. The omission falls at the 5-minute block boundary. The missing content propagates: the Summary contains no past history of asthma, no inhaler use, no occupation, and no household contacts; the SNOMED-CT Coder has no asthma concept (195967001). The clinician receives no indication at any stage that content is missing. The email identifies this as the highest priority and states the evaluation cannot resume until it is understood. It should be investigated together with JMD-12OCT-02 and JMD-07OCT-05 as they share the same block-boundary logic.",
+    "context": "In session uk_abe9011f162d4869b84f6063e27c7384 (Primock D1C01, 12 October), recording ran uninterrupted for 458 seconds with no interruption notification. The saved audio contains speech throughout 3:33–5:20 (confirmed by playback) and the live transcript contained this stretch (Chinese takeaway, asthma, occupation, household contacts). The annotated transcript omits it entirely: the first block ends mid-sentence at 'Patient: Yeah, so I' and the next block starts at 'Doctor: Two children. Is that right', with no marker, so the transcript reads as continuous. The omission falls at the 5-minute block boundary. The missing content propagates: the Summary contains no past history of asthma, no inhaler use, no occupation, and no household contacts; the SNOMED-CT Coder has no asthma concept (195967001). The clinician receives no indication at any stage that content is missing. The email identifies this as the highest priority and states the evaluation cannot resume until it is understood. It should be investigated together with JMD-12OCT-02 and JMD-07OCT-05 as they share the same block-boundary logic.",
     "expected": "Every segment transcribed live appears in the annotated transcript; if a segment cannot be speaker-labelled it is inserted unannotated with a visible marker rather than dropped; the Summary and SNOMED codes are not generated from a transcript with an unmarked gap, and if a gap is unavoidable the clinician is informed before outputs are presented.",
     "repos": [
       {
@@ -306,15 +310,15 @@
   },
   {
     "id": "JMD-12OCT-02",
-    "title": "Transcript block label '09:44:18 \u2013 09:49:18 BST' repeated six times; blocks not labelled with their own time ranges",
+    "title": "Transcript block label '09:44:18 – 09:49:18 BST' repeated six times; blocks not labelled with their own time ranges",
     "severity": "P3 - Minor",
-    "status": "unresolved",
+    "status": "fixed",
     "kind": "recurrent",
     "kind_reason": "The report explicitly states this extends JMD-07OCT-05 (one incorrect label for a 9:25 recording), identifying it as the same block-boundary labelling defect returning in a new form.",
     "services": [
       "annotated transcript"
     ],
-    "context": "In session uk_abe9011f162d4869b84f6063e27c7384 (12 October, 8:06 recording), all six annotated transcript blocks carry the identical label '09:44:18 BST \u2013 09:49:18 BST'. This label equals the session creation time (Encounter Date) plus five minutes, not the actual time range of each block. The BST suffix is new since 7 October. The same block-boundary logic is implicated in JMD-12OCT-01 (content dropped at the 5-minute boundary) and JMD-07OCT-05, and the email asks that all three be investigated together.",
+    "context": "In session uk_abe9011f162d4869b84f6063e27c7384 (12 October, 8:06 recording), all six annotated transcript blocks carry the identical label '09:44:18 BST – 09:49:18 BST'. This label equals the session creation time (Encounter Date) plus five minutes, not the actual time range of each block. The BST suffix is new since 7 October. The same block-boundary logic is implicated in JMD-12OCT-01 (content dropped at the 5-minute boundary) and JMD-07OCT-05, and the email asks that all three be investigated together.",
     "expected": "Each block is labelled with its own unique start and end time in UK time with the correct zone suffix (BST/GMT); consecutive block labels are contiguous and together cover the full recording length, consistent with the recording start time.",
     "repos": [
       {
@@ -333,13 +337,14 @@
         "remote": "cto-hba/jmd-frontend"
       }
     ],
-    "report_status": "Open"
+    "report_status": "Open",
+    "solver_run_id": "run-0b07d745-88c8-4e4f-94fd-63397ef1d73f"
   },
   {
     "id": "JMD-12OCT-03",
     "title": "Initial page load of jarvismd-trial.xycare.co.uk takes about 75 seconds on every browser and network tested",
     "severity": "P2 - Major",
-    "status": "unresolved",
+    "status": "fixed",
     "kind": "new",
     "kind_reason": "This ticket was first identified during manual testing on 12 October 2026 and has not been reported as fixed or retested.",
     "services": [
@@ -354,6 +359,7 @@
         "remote": "cto-hba/jmd-frontend"
       }
     ],
-    "report_status": "Open"
+    "report_status": "Open",
+    "solver_run_id": "run-8b769370-cc8f-45ee-b47f-2bb7624656db"
   }
 ]

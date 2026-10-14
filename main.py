@@ -20,6 +20,12 @@ def main() -> None:
     if args == ["solve"] or args == ["all"]:
         solver.solve_all()
         return
+    if args == ["run"]:
+        solver.solve_all()
+        import verified
+
+        verified.verify_all()
+        return
     if args[0] == "solve" and len(args) == 2:
         solver.solve(args[1])
         return
@@ -40,7 +46,7 @@ def main() -> None:
         solver.solve(args[0])
         return
     raise SystemExit(
-        "usage: python main.py [parse|list|solve|solve <ticket-id>|verify|verify <ticket-id>|complete <ticket-id>|<ticket-id>]"
+        "usage: python main.py [parse|list|solve|run|solve <ticket-id>|verify|verify <ticket-id>|complete <ticket-id>|<ticket-id>]"
     )
 
 

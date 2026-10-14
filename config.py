@@ -1,4 +1,4 @@
-"""Shared paths and the ticket-service to checkout map."""
+"""Shared paths and ticket workflow. Product repos live in the code context file."""
 
 from __future__ import annotations
 
@@ -26,10 +26,6 @@ def load_local_env() -> None:
 
 load_local_env()
 
-PRODUCT_ROOT = Path(os.getenv("FLEETAI_PRODUCT_ROOT") or "/Users/minh/repos/hba")
-HANDOFF_RULE = PRODUCT_ROOT / ".cursor" / "rules" / "hba-platform-handoff.mdc"
-SSH_CONFIG = Path.home() / ".ssh" / "config"
-
 TICKETS_DIR = ROOT / "tickets"
 PDF_PATH = TICKETS_DIR / "list.pdf"
 EMAIL_PATH = TICKETS_DIR / "email.desc.txt"
@@ -41,6 +37,10 @@ VERIFYING = "verifying"
 COMPLETED = "completed"
 FIXED = "fixed"
 TICKET_STATES = (UNRESOLVED, VERIFYING, COMPLETED, FIXED)
+IN_FLIGHT = (VERIFYING, COMPLETED, FIXED)
+READY = "ready"
+BLOCKED = "blocked"
+FAILED = "failed"
 
 CURSOR_MODEL = (os.getenv("FLEETAI_CURSOR_MODEL") or "grok-4.6").strip()
 GITHUB_REPO = os.getenv("FLEETAI_GITHUB_REPO") or "ngtminh/fleetai"
@@ -60,111 +60,24 @@ REQUIRED_TICKET_FIELDS = (
     "expected",
 )
 
-REPOS = {
-    "jmd-frontend": {
-        "remote": "cto-hba/jmd-frontend",
-        "owns": "React/Vite SPA. Regional URLs and flags: public/server-profiles.json",
-    },
-    "jarvismd-backend": {
-        "remote": "cto-hba/jarvismd-backend",
-        "owns": "FastAPI session APIs, annotation, Summary, SNOMED proxy, GP apply audit",
-    },
-    "transcribe": {
-        "remote": "cto-hba/transcribe",
-        "owns": "Socket.IO STT. App is transcribe/backend",
-    },
-    "nlp-services": {
-        "remote": "healthbridge-inc/nlp-services",
-        "owns": "Celery NLP worker for speaker annotation and Summary generation",
-    },
-    "jmd-gp-consult-template": {
-        "remote": "healthbridge-inc/jmd-gp-consult-template",
-        "owns": "GP template UI + extract API. Vendor into jmd-frontend after UI changes",
-    },
-    "snomed": {
-        "remote": "cto-hba/snomed",
-        "owns": "SNOMED coding service on its own VM. Browser must not call it",
-    },
-    "ask-jarvismd": {
-        "remote": "healthbridge-inc/ask-jarvismd",
-        "owns": "Ask JarvisMD chatbot",
-    },
-    "credit-manager": {
-        "remote": "healthbridge-inc/credit-manager",
-        "owns": "Internal credit API",
-    },
-    "jmd-xycare": {
-        "remote": "healthbridge-inc/jmd-xycare",
-        "owns": "Local XYClient/SystmOne probes, not the hosted app",
-    },
-    "jmd-world-dashboard": {
-        "remote": "healthbridge-inc/jmd-world-dashboard",
-        "owns": "Fleet dashboard",
-    },
-    "healthbridge-homepage": {
-        "remote": "cto-hba/healthbridge-homepage",
-        "owns": "HBA public website",
-    },
-    "jmd-templates": {
-        "remote": "cto-hba/jmd-templates",
-        "owns": "Template source notes. Not the packaged GP module",
-    },
-}
-
-# Parser service nicknames -> child repos under PRODUCT_ROOT.
-SERVICE_REPOS = {
-    "page load": ["jmd-frontend"],
-    "session activity": ["jmd-frontend"],
-    "annotated transcript ui": ["jmd-frontend"],
-    "copy icon": ["jmd-frontend"],
-    "timestamps": ["jmd-frontend"],
-    "survey": ["jmd-frontend"],
-    "uk time": ["jmd-frontend"],
-    "annotated transcript": ["jarvismd-backend", "nlp-services", "jmd-frontend"],
-    "clinical summary": ["jarvismd-backend", "nlp-services", "jmd-frontend"],
-    "save & complete": ["jarvismd-backend", "jmd-frontend"],
-    "transcription": ["transcribe", "jmd-frontend"],
-    "live transcript": ["transcribe", "jmd-frontend"],
-    "recording gaps": ["transcribe", "jarvismd-backend"],
-    "gp consult template": ["jmd-gp-consult-template", "jmd-frontend"],
-    "snomed-ct coder": ["snomed", "jarvismd-backend", "jmd-frontend"],
-    "snomed": ["snomed", "jarvismd-backend", "jmd-frontend"],
-    "chatbot": ["ask-jarvismd"],
-    "credits": ["credit-manager"],
-    "fhir": ["jarvismd-backend", "jmd-xycare"],
-    "systmone": ["jarvismd-backend", "jmd-xycare"],
-}
-
-
-def repo_path(name: str) -> Path:
-    return PRODUCT_ROOT / name
-
 
 def product_cwd() -> Path:
-    if PRODUCT_ROOT.is_dir():
-        return PRODUCT_ROOT
-    raise RuntimeError(
-        "product root is missing: {0}. Set FLEETAI_PRODUCT_ROOT.".format(PRODUCT_ROOT)
-    )
+    raw = (os.getenv("FLEETAI_PRODUCT_ROOT") or "").strip()
+    if not raw:
+        raise RuntimeError("FLEETAI_PRODUCT_ROOT is required")
+    root = Path(raw)
+    if not root.is_dir():
+        raise RuntimeError("product root is missing: {0}".format(root))
+    return root
 
 
-def repos_for_services(services: list[str]) -> list[dict]:
-    names: list[str] = []
-    for service in services:
-        for name in SERVICE_REPOS.get(service.strip().lower(), ()):
-            if name not in names:
-                names.append(name)
-    if not names:
-        names.append("jmd-frontend")
-    return [
-        {
-            "name": name,
-            "path": str(repo_path(name)),
-            "remote": REPOS[name]["remote"],
-        }
-        for name in names
-        if name in REPOS
-    ]
+def code_context() -> str:
+    if not CONTEXT_PATH.is_file():
+        raise RuntimeError("missing code context: {0}".format(CONTEXT_PATH))
+    text = CONTEXT_PATH.read_text(encoding="utf-8").strip()
+    if not text:
+        raise RuntimeError("code context is empty: {0}".format(CONTEXT_PATH))
+    return text
 
 
 def normalize_ticket(item: object) -> dict:
@@ -182,7 +95,13 @@ def normalize_ticket(item: object) -> dict:
     ticket = dict(item)
     ticket["id"] = ticket_id
     ticket["services"] = [str(service).strip() for service in services if str(service).strip()]
-    ticket["repos"] = repos_for_services(ticket["services"])
+    repos = item.get("repos")
+    if repos is None:
+        ticket["repos"] = []
+    elif isinstance(repos, list):
+        ticket["repos"] = repos
+    else:
+        raise RuntimeError("ticket {0}: repos must be a list".format(ticket_id))
     raw_status = ticket.get("status")
     report_status = ticket.get("report_status")
     if raw_status and not is_workflow_status(raw_status):
@@ -223,21 +142,50 @@ def normalize_status(value: object, default: str | None = UNRESOLVED) -> str | N
     if default is None:
         return None
     raise RuntimeError(
-        "ticket status must be unresolved, verifying, or completed: {0}".format(value)
+        "ticket status must be unresolved, verifying, completed, or fixed: {0}".format(
+            value
+        )
     )
+
+
+def last_verdict(text: str | None) -> str | None:
+    if not text:
+        return None
+    allowed = {
+        "verdict: fixed": FIXED,
+        "verdict: failed": FAILED,
+        "verdict: ready": READY,
+        "verdict: blocked": BLOCKED,
+    }
+    for line in reversed(text.strip().splitlines()):
+        cleaned = line.strip().strip("*").strip("`")
+        found = allowed.get(cleaned.lower())
+        if found:
+            return found
+    return None
 
 
 def apply_workflow(tickets: list[dict], existing: list[dict]) -> list[dict]:
     previous = {item["id"]: item for item in existing}
+    seen: set[str] = set()
+    merged: list[dict] = []
     for ticket in tickets:
         prior = previous.get(ticket["id"])
-        if prior and prior.get("status") in (VERIFYING, COMPLETED, FIXED):
-            ticket["status"] = prior["status"]
-            if prior.get("solver_run_id"):
-                ticket["solver_run_id"] = prior["solver_run_id"]
+        if prior and prior.get("status") in IN_FLIGHT:
+            kept = dict(prior)
+            if ticket.get("report_status"):
+                kept["report_status"] = ticket["report_status"]
+            merged.append(kept)
         else:
+            if prior and not ticket.get("repos") and prior.get("repos"):
+                ticket["repos"] = prior["repos"]
             ticket["status"] = UNRESOLVED
-    return tickets
+            merged.append(ticket)
+        seen.add(ticket["id"])
+    for prior in existing:
+        if prior["id"] not in seen and prior.get("status") in IN_FLIGHT:
+            merged.append(prior)
+    return merged
 
 
 def load_tickets(path: Path = TICKETS_PATH) -> list[dict]:
@@ -268,89 +216,3 @@ def set_ticket_status(ticket_id: str, status: str, run_id: str | None = None) ->
     return ticket
 
 
-def code_context() -> str:
-    root = PRODUCT_ROOT
-    rows = [
-        (
-            "page load, session activity, annotated transcript UI, copy icon, timestamps, survey, UK time",
-            "jmd-frontend",
-        ),
-        (
-            "annotated transcript pipeline, clinical summary persistence, Save & complete, evaluation snapshots",
-            "jarvismd-backend",
-        ),
-        ("transcription, live transcript, recording gaps, resume/audio", "transcribe"),
-        ("speaker annotation LLM, Summary generation", "nlp-services"),
-        ("GP consult template", "jmd-gp-consult-template"),
-        ("SNOMED-CT coder", "snomed"),
-        ("chatbot", "ask-jarvismd"),
-        ("credits", "credit-manager"),
-        ("FHIR / SystmOne local probe", "jmd-xycare"),
-        ("world dashboard", "jmd-world-dashboard"),
-        ("public site", "healthbridge-homepage"),
-        ("template source notes", "jmd-templates"),
-    ]
-    table = [
-        "| {0} | `{1}` | `{2}` | {3} |".format(
-            services,
-            repo_path(name),
-            REPOS[name]["remote"],
-            REPOS[name]["owns"],
-        )
-        for services, name in rows
-    ]
-    return "\n".join(
-        [
-            "# JarvisMD / HBA product code",
-            "",
-            "This FleetAI repo is the ticket runner only. Product code lives under",
-            "`{0}`. That folder is a container of independent Git".format(root),
-            "repositories. Run Git commands inside the child repo you are changing.",
-            "",
-            "Read `{0}` first.".format(HANDOFF_RULE),
-            "",
-            "SSH aliases are in `{0}`. Use `ssh <alias>`. Do not".format(SSH_CONFIG),
-            "copy keys or edit that file unless the user asks.",
-            "",
-            "## Repositories",
-            "",
-            "| Ticket service names | Local checkout | Remote | Owns |",
-            "|---|---|---|---|",
-            *table,
-            "",
-            "## How a consult flows",
-            "",
-            "`browser mic -> transcribe Socket.IO -> transcript Mongo -> backend normalize -> NLP annotation -> annotated transcript -> Summary -> SNOMED suggestions -> clinician edits -> Save & complete`",
-            "",
-            "If live text is present and annotated text is missing, start in",
-            "`jarvismd-backend` annotation code, not the coder.",
-            "If a GP template UI change is needed, edit `jmd-gp-consult-template`, then",
-            "`npm run vendor:gp-consult-templates -- ../jmd-gp-consult-template` in",
-            "`jmd-frontend`. Changing the template repo alone does not update the SPA.",
-            "",
-            "## UK evaluation target",
-            "",
-            '"UK" means `https://jarvismd-trial.xycare.co.uk`, not the older HBA UK VM.',
-            "",
-            "| Role | SSH alias |",
-            "|---|---|",
-            "| UK deploy / runtime | `staging-uk-jmd-xycare-cicd` |",
-            "| UK VM admin | `staging-uk-jmd-xycare-admin` |",
-            "| Older HBA UK VM | `prod-uk-jmd` |",
-            "| SNOMED host | `snomed-uk` |",
-            "| Dev JarvisMD VM | `dev-javismd` |",
-            "| AU / SG / KH / MX / CA | `prod-au-cicd`, `prod-sg-cicd`, `prod-kh`, `prod-mex-cicd`, `prod-canada-cicd` |",
-            "",
-            "Frontend profile `uk-xycare` points REST and `/transcribe` at the Xycare origin.",
-            "",
-            "## Work rules for the solver",
-            "",
-            "- Prefer the local checkout over cloning the remote.",
-            "- Check `git status --short --branch` in each affected child repo first.",
-            "- Keep existing uncommitted work. Do not switch branches.",
-            "- Do not commit, push, or deploy unless the user authorized it.",
-            "- Backend UK CI deploys from `staging/uk-xycare`. `prod/uk` is a no-op in CI.",
-            "- Frontend `main` does not auto-deploy to the Xycare UK container.",
-            "",
-        ]
-    )

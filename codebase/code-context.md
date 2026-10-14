@@ -57,5 +57,21 @@ Frontend profile `uk-xycare` points REST and `/transcribe` at the Xycare origin.
 - Check `git status --short --branch` in each affected child repo first.
 - Keep existing uncommitted work. Do not switch branches.
 - Do not commit, push, or deploy unless the user authorized it.
-- Backend UK CI deploys from `staging/uk-xycare`. `prod/uk` is a no-op in CI.
+- UK backend develop/CI branch is `staging/uk-xycare`. `prod/uk` is a no-op in CI.
+- `staging/uk-xycare` has no XYCare write-back. Do not import `app.services.xyfhir`.
+- If jarvismd-backend is not on `staging/uk-xycare`, stop and say so.
 - Frontend `main` does not auto-deploy to the Xycare UK container.
+- Happy-path tests are not enough. Check adjacent callers and opposite cases.
+
+## How to run tests
+
+Find the test file next to the changed module, then run that file.
+Do not skip tests because this map is short. Do not run an unrelated
+full suite when a focused file covers the change.
+
+- `jmd-frontend`: `NODE_OPTIONS=--localstorage-file=/tmp/jmd-vitest-localstorage npm run test:run -- <file>` from the repo root. Also `npm run build` for UI/API client changes.
+- `jmd-gp-consult-template`: `npm test -- --runInBand` then vendor into `jmd-frontend`.
+- `transcribe/backend`: `npm test` and `npm run build`. Live AWS tests skip without credentials.
+- `jarvismd-backend`: Python 3.13 only. From `app/`: `python -m pytest app/tests/unit/<module> -q`. macOS system Python 3.9 cannot collect the suite.
+- `nlp-services`: `python -m pytest tests/test_<area>.py -q` in an env that has the worker deps.
+- `snomed`: `pytest tests/` on that repo. The browser must not call it.
