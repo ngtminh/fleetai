@@ -1,0 +1,3 @@
+The solver uses config.code_context().
+That map lists the HBA / JarvisMD repositories, SSH aliases, and ticket routing.
+The parser also writes a snapshot to codebase/code-context.md.
